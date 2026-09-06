@@ -66,7 +66,7 @@ def _get_raft(mode="pretrained"):
                     ckpt = p
                     break
             try:
-                _RAFT_PRE = RAFTStereoInference(checkpoint_path=ckpt)
+                _RAFT_PRE = RAFTStereoInference(checkpoint_path=ckpt, mode="pretrained")
             except Exception as e:
                 return None, str(e)
         return _RAFT_PRE, "OK"
@@ -74,12 +74,13 @@ def _get_raft(mode="pretrained"):
         if _RAFT_FINE is None:
             ckpt = ""
             for p in [os.path.join(current_dir, "models", "my_finetuned_raft_v2.pth"),
+                      os.path.join(current_dir, "models", "raftstereo-middlebury.pth"),
                       "/content/my_finetuned_raft_v2.pth"]:
                 if os.path.exists(p):
                     ckpt = p
                     break
             try:
-                _RAFT_FINE = RAFTStereoInference(checkpoint_path=ckpt)
+                _RAFT_FINE = RAFTStereoInference(checkpoint_path=ckpt, mode="finetuned")
             except Exception as e:
                 return None, str(e)
         return _RAFT_FINE, "OK"
