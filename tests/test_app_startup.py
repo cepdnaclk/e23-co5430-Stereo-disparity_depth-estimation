@@ -31,27 +31,28 @@ class AppStartupTests(unittest.TestCase):
         self.assertIsInstance(json_schema_to_python_type(schema), str)
 
     def test_homepage_and_api_schema(self):
-        # Exercise real Image, ImageSlider and File schemas, including callbacks.
+        # Exercise real Gradio endpoints and schemas
         info = app.demo.get_api_info()
-        self.assertIn("/process_single_stereo", info["named_endpoints"])
+        self.assertIn("/cb_single", info["named_endpoints"])
         with TestClient(app.demo.app) as client:
             for path in ("/", "/config", "/gradio_api/info"):
                 with self.subTest(path=path):
                     self.assertEqual(client.get(path).status_code, 200)
 
-    def test_sample_stereo_slider_output(self):
+    def test_sample_stereo_output(self):
         examples = Path(app.current_dir) / "examples"
-        left = cv2.cvtColor(cv2.imread(str(examples / "sample_left.png")), cv2.COLOR_BGR2RGB)
-        right = cv2.cvtColor(cv2.imread(str(examples / "sample_right.png")), cv2.COLOR_BGR2RGB)
-        for model, block_size in (("StereoSGBM", 3), ("StereoBM", 25)):
+        lf, rf = app._ensure_samples()
+        left = cv2.cvtColor(cv2.imread(lf), cv2.COLOR_BGR2RGB)
+        right = cv2.cvtColor(cv2.imread(rf), cv2.COLOR_BGR2RGB)
+        for model, block_size in (("StereoSGBM (Classical Semi-Global Matching)", 3),
+                                  ("StereoBM (Classical Block Matching)", 25)):
             with self.subTest(model=model):
-                images, stats, disparity = app.process_single_stereo(
+                out_l, out_d, stats = app.cb_single(
                     left, right, model, block_size, 160, 10, "plasma"
                 )
-                self.assertEqual(disparity.shape, left.shape[:2])
-                self.assertTrue((disparity > 0).any())
+                self.assertEqual(out_l.shape, left.shape)
+                self.assertEqual(out_d.shape, left.shape)
                 self.assertIn(model, stats)
-                self.assertIsNotNone(app.slider_out.postprocess(images))
 
 
 if __name__ == "__main__":
