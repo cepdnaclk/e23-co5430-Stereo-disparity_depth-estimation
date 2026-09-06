@@ -1,7 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from opt_einsum import contract
+try:
+    from opt_einsum import contract
+except ImportError:
+    try:
+        from torch import einsum as contract
+    except ImportError:
+        contract = None
 
 class FlowHead(nn.Module):
     def __init__(self, input_dim=128, hidden_dim=256, output_dim=2):
