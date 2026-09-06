@@ -1,118 +1,131 @@
 #!/usr/bin/env bash
+# ==============================================================================
 # Deploy to Hugging Face Spaces (Linux / macOS / WSL / Git Bash)
-set -e
+#
+# CO543 / CO5430 Computer Vision Project
+# Group G03 | Project ID: P12 | University of Peradeniya
+# ==============================================================================
+set -eo pipefail
 
-echo "============================================================"
-echo "  Hugging Face Spaces Deployment Tool"
-echo "  Repository: e23-co5430-Stereo-disparity_depth-estimation"
-echo "============================================================"
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+echo -e "${CYAN}${BOLD}============================================================${NC}"
+echo -e "${CYAN}${BOLD}  Hugging Face Spaces Deployment Tool${NC}"
+echo -e "${CYAN}  Repository: e23-co5430-Stereo-disparity_depth-estimation${NC}"
+echo -e "${CYAN}${BOLD}============================================================${NC}"
 echo ""
 
 # 1. Check git
 if ! command -v git &> /dev/null; then
-    echo "[ERROR] git is not installed or not in PATH."
+    echo -e "${RED}[ERROR] git is not installed or not found in PATH.${NC}"
     exit 1
 fi
 
-# 2. Check repository files
-if [ ! -f "app.py" ]; then
-    echo "[ERROR] app.py not found. Please run this script from the repository root."
+# 2. Check repository root
+if [ ! -f "app.py" ] || [ ! -f "README.md" ]; then
+    echo -e "${RED}[ERROR] app.py or README.md not found.${NC}"
+    echo -e "${YELLOW}Please run this script from the repository root directory:${NC}"
+    echo "  cd ~/projects/e23-co5430-Stereo-disparity_depth-estimation"
+    echo "  ./deploy_to_hf.sh"
     exit 1
 fi
 
-if [ ! -f "README.md" ]; then
-    echo "[ERROR] README.md not found. Hugging Face Spaces requires README.md with YAML metadata."
-    exit 1
-fi
-
-# 3. Detect branch
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
-echo "[INFO] Current Git branch: $CURRENT_BRANCH"
-
-# 4. Check for uncommitted changes
-if [ -n "$(git status --porcelain)" ]; then
-    echo ""
-    echo "[WARNING] You have uncommitted changes or untracked files:"
-    git status -s
-    echo ""
-    read -r -p "Do you want to stage and commit these changes before deploying? [Y/n]: " COMMIT_CHOICE
-    COMMIT_CHOICE=${COMMIT_CHOICE:-y}
-    if [[ "$COMMIT_CHOICE" =~ ^[Yy]$ ]]; then
-        read -r -p "Enter commit message [Deploy to Hugging Face Spaces]: " COMMIT_MSG
-        COMMIT_MSG=${COMMIT_MSG:-Deploy to Hugging Face Spaces}
-        git add .
-        git commit -m "$COMMIT_MSG"
-    else
-        echo "[INFO] Proceeding without committing changes. Only committed files will be deployed."
-    fi
-fi
-
-# 5. Remote configuration
+# 3. Remote configuration
 SPACE_URL=""
 if git remote get-url space &> /dev/null; then
     SPACE_URL=$(git remote get-url space)
-    echo "[INFO] Existing 'space' remote found: $SPACE_URL"
-    read -r -p "Use this remote? [Y/n]: " USE_EXISTING
-    USE_EXISTING=${USE_EXISTING:-y}
-    if [[ ! "$USE_EXISTING" =~ ^[Yy]$ ]]; then
-        SPACE_URL=""
-    fi
-fi
-
-if [ -z "$SPACE_URL" ]; then
+    # Mask any token for display
+    MASKED_URL=$(echo "$SPACE_URL" | sed -E 's/:[^@]+@/:***@/')
+    echo -e "${GREEN}[INFO] Existing 'space' remote detected:${NC} $MASKED_URL"
+else
+    echo -e "${YELLOW}[INFO] 'space' remote not configured.${NC}"
     echo ""
     echo "Please enter your Hugging Face Space details."
     echo "Example: https://huggingface.co/spaces/USERNAME/SPACE-NAME or USERNAME/SPACE-NAME"
     read -r -p "Enter Space URL or username/space-name: " INPUT_TARGET
     if [ -z "$INPUT_TARGET" ]; then
-        echo "[ERROR] Space target cannot be empty."
+        echo -e "${RED}[ERROR] Space target cannot be empty.${NC}"
         exit 1
     fi
 
-    if [[ "$INPUT_TARGET" =~ ^https://huggingface.co/spaces/ ]]; then
+    if [[ "$INPUT_TARGET" =~ ^https?:// ]]; then
         SPACE_URL="$INPUT_TARGET"
     else
         SPACE_URL="https://huggingface.co/spaces/$INPUT_TARGET"
     fi
 
-    if git remote | grep -q "^space$"; then
-        git remote set-url space "$SPACE_URL"
-    else
-        git remote add space "$SPACE_URL"
-    fi
-    echo "[OK] Configured remote 'space' -> $SPACE_URL"
+    git remote add space "$SPACE_URL"
+    echo -e "${GREEN}[OK] Added remote 'space' -> $SPACE_URL${NC}"
 fi
 
-echo ""
-echo "------------------------------------------------------------"
-echo "AUTHENTICATION NOTICE:"
-echo "When Git prompts for credentials:"
-echo "  - Username: Your Hugging Face username"
-echo "  - Password: A User Access Token (Write role)"
-echo "  Generate one at: https://huggingface.co/settings/tokens"
-echo "------------------------------------------------------------"
-echo ""
-
-# 6. Push to Hugging Face Space
-echo "[INFO] Pushing $CURRENT_BRANCH to Hugging Face Space (main)..."
-if ! git push space "$CURRENT_BRANCH:main"; then
+# 4. Check for write token in remote URL
+if [[ ! "$SPACE_URL" =~ :hf_ && ! "$SPACE_URL" =~ :api_ && ! "$SPACE_URL" =~ git@ ]]; then
     echo ""
-    echo "[WARNING] Normal push failed."
-    echo "This often happens if the Space was created with default files on Hugging Face."
-    read -r -p "Would you like to force-push to overwrite the Space? [y/N]: " FORCE_PUSH
-    FORCE_PUSH=${FORCE_PUSH:-n}
-    if [[ "$FORCE_PUSH" =~ ^[Yy]$ ]]; then
-        echo "[INFO] Force-pushing to space..."
-        git push space "$CURRENT_BRANCH:main" --force
-    else
-        echo "[INFO] Deployment aborted."
-        exit 1
-    fi
+    echo -e "${YELLOW}------------------------------------------------------------${NC}"
+    echo -e "${BOLD}AUTHENTICATION NOTICE:${NC}"
+    echo "If git prompts for credentials:"
+    echo "  - Username: Your Hugging Face username"
+    echo "  - Password: A User Access Token with 'Write' permission"
+    echo "  (Generate at: https://huggingface.co/settings/tokens)"
+    echo -e "${YELLOW}------------------------------------------------------------${NC}"
+    echo ""
 fi
 
+# 5. Build clean isolated deployment commit (NO binary files, NO working-tree changes)
+echo -e "${CYAN}[INFO] Assembling clean code package for Hugging Face Spaces...${NC}"
+
+TMP_INDEX=$(mktemp -u "${TMPDIR:-/tmp}/hf_index_XXXXXX")
+cleanup() {
+    rm -f "$TMP_INDEX" "$TMP_INDEX.lock" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+# Stage only source code and metadata files into temporary index
+GIT_INDEX_FILE="$TMP_INDEX" git add -f app.py requirements.txt README.md
+if [ -f "packages.txt" ]; then
+    GIT_INDEX_FILE="$TMP_INDEX" git add -f packages.txt
+fi
+
+# Stage python source files from src/ (ignoring any binary images in subfolders)
+for pyfile in src/*.py; do
+    if [ -f "$pyfile" ]; then
+        GIT_INDEX_FILE="$TMP_INDEX" git add -f "$pyfile"
+    fi
+done
+
+# Create tree object from isolated index
+TREE_HASH=$(GIT_INDEX_FILE="$TMP_INDEX" git write-tree)
+
+CURRENT_REV=$(git rev-parse --short HEAD 2>/dev/null || echo "local")
+COMMIT_MSG="Deploy to Hugging Face Spaces ($(date -u +'%Y-%m-%d %H:%M:%S UTC') from commit $CURRENT_REV)"
+
+# Create a clean root commit (no parent commits, no binary history)
+DEPLOY_COMMIT=$(git commit-tree "$TREE_HASH" -m "$COMMIT_MSG")
+
+echo -e "${GREEN}[OK] Created clean deployment commit:${NC} $DEPLOY_COMMIT"
+echo -e "${CYAN}[INFO] Packaged files:${NC}"
+git ls-tree --name-only -r "$DEPLOY_COMMIT" | sed 's/^/  - /'
 echo ""
-echo "============================================================"
-echo "[SUCCESS] Deployment completed successfully!"
-echo "Your Space will be built and hosted at:"
-echo "$SPACE_URL"
-echo "============================================================"
+
+# 6. Push directly to Hugging Face Space
+echo -e "${CYAN}[INFO] Pushing to Hugging Face Space (main branch)...${NC}"
+if git push space "$DEPLOY_COMMIT:refs/heads/main" --force; then
+    # Extract clean display URL without token
+    CLEAN_URL=$(echo "$SPACE_URL" | sed -E 's/https?:\/\/[^@]+@/https:\/\//')
+    echo ""
+    echo -e "${GREEN}${BOLD}============================================================${NC}"
+    echo -e "${GREEN}${BOLD}[SUCCESS] Deployment completed successfully!${NC}"
+    echo -e "${CYAN}Your Space is building and will be live at:${NC}"
+    echo -e "  ${BOLD}$CLEAN_URL${NC}"
+    echo -e "${GREEN}${BOLD}============================================================${NC}"
+else
+    echo ""
+    echo -e "${RED}[ERROR] Push to Hugging Face failed.${NC}"
+    echo "Please check your authentication token and network connection."
+    exit 1
+fi

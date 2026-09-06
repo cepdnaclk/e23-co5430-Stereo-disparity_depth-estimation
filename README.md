@@ -8,6 +8,7 @@ sdk_version: 5.49.1
 app_file: app.py
 pinned: false
 license: mit
+hardware: cpu-basic
 ---
 
 # Stereo Disparity and Depth Estimation from Rectified Stereo Images
