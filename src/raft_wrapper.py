@@ -1,29 +1,112 @@
-"""RAFT-Stereo Deep Learning Wrapper with CPU/CUDA support and automatic checkpoint management."""
+"""RAFT-Stereo Deep Learning Wrapper with CPU/CUDA support, bundled core, and auto-download."""
 
 import os
 import sys
 import time
+import subprocess
 import urllib.request
 import numpy as np
 from typing import Tuple, Optional
 
-# Ensure core and RAFT-Stereo paths can be found
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
-possible_paths = [
-    os.path.join(project_root, 'core'),
-    os.path.join(project_root, 'RAFT-Stereo', 'core'),
-    os.path.join(project_root, 'RAFT-Stereo'),
-    '/content/RAFT-Stereo/core',
-    '/content/RAFT-Stereo'
-]
-for p in possible_paths:
+
+# Ensure project root and core directory are discoverable in sys.path
+for p in [project_root, os.path.join(project_root, 'core'), '/tmp/RAFT-Stereo', '/content/RAFT-Stereo']:
     if os.path.exists(p) and p not in sys.path:
-        sys.path.append(p)
+        sys.path.insert(0, p)
+
+
+def _get_raft_stereo_class():
+    """Import and return RAFTStereo class from bundled core or fallback clone."""
+    try:
+        from core.raft_stereo import RAFTStereo
+        return RAFTStereo
+    except ImportError:
+        pass
+
+    try:
+        from raft_stereo import RAFTStereo
+        return RAFTStereo
+    except ImportError:
+        pass
+
+    # Clone RAFT-Stereo as emergency fallback
+    clone_target = '/tmp/RAFT-Stereo'
+    if not os.path.exists(os.path.join(clone_target, 'core', 'raft_stereo.py')):
+        print(f"[RAFT-Stereo] Cloning official RAFT-Stereo repository into {clone_target}...")
+        try:
+            subprocess.run(
+                ['git', 'clone', '--depth', '1', 'https://github.com/princeton-vl/RAFT-Stereo.git', clone_target],
+                check=True,
+                capture_output=True,
+                timeout=120
+            )
+        except Exception as e:
+            print(f"[RAFT-Stereo] Fallback clone warning: {e}")
+
+    for p in [clone_target, os.path.join(clone_target, 'core')]:
+        if p not in sys.path:
+            sys.path.insert(0, p)
+
+    try:
+        from core.raft_stereo import RAFTStereo
+        return RAFTStereo
+    except ImportError:
+        from raft_stereo import RAFTStereo
+        return RAFTStereo
+
+
+def _ensure_checkpoint(ckpt_path: Optional[str], mode: str = "pretrained") -> str:
+    """Ensure model checkpoint file exists, auto-downloading from Hugging Face mirror if needed."""
+    if ckpt_path and os.path.exists(ckpt_path) and os.path.getsize(ckpt_path) > 1000000:
+        return ckpt_path
+
+    # Determine target download path
+    models_dir = os.path.join(project_root, "models")
+    try:
+        os.makedirs(models_dir, exist_ok=True)
+    except Exception:
+        models_dir = "/tmp/models"
+        os.makedirs(models_dir, exist_ok=True)
+
+    if mode == "finetuned":
+        local_ckpt = os.path.join(models_dir, "raftstereo-middlebury.pth")
+        url = "https://huggingface.co/shriarul5273/RAFT-Stereo/resolve/main/raftstereo-middlebury.pth"
+    else:
+        local_ckpt = os.path.join(models_dir, "raftstereo-sceneflow.pth")
+        url = "https://huggingface.co/shriarul5273/RAFT-Stereo/resolve/main/raftstereo-sceneflow.pth"
+
+    if os.path.exists(local_ckpt) and os.path.getsize(local_ckpt) > 1000000:
+        return local_ckpt
+
+    print(f"[RAFT-Stereo] Auto-downloading {mode} weights from {url} to {local_ckpt}...")
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=180) as response, open(local_ckpt, 'wb') as out_file:
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
+                out_file.write(chunk)
+        print(f"[RAFT-Stereo] Download complete: {local_ckpt} ({os.path.getsize(local_ckpt)} bytes)")
+        return local_ckpt
+    except Exception as e:
+        print(f"[RAFT-Stereo] Download failed: {e}")
+        # Try gdown fallback for sceneflow
+        if mode != "finetuned":
+            try:
+                import gdown
+                gdown.download(id="1e7z5vIo7aFxVl7R5FbflAZlnS2G9IZRj", output=local_ckpt, quiet=False)
+                if os.path.exists(local_ckpt) and os.path.getsize(local_ckpt) > 1000000:
+                    return local_ckpt
+            except Exception as e2:
+                print(f"[RAFT-Stereo] gdown fallback failed: {e2}")
+        return ckpt_path or ""
 
 
 def get_default_args(ckpt_path: str = 'models/raftstereo-sceneflow.pth'):
-    """Simulates argparse object matching the Colab configuration."""
+    """Simulates argparse object matching the Colab and official evaluation configuration."""
     args = type('', (), {})()
     args.restore_ckpt = ckpt_path
     args.shared_backbone = False
@@ -43,33 +126,28 @@ def get_default_args(ckpt_path: str = 'models/raftstereo-sceneflow.pth'):
 
 
 class RAFTStereoInference:
-    """Wrapper class for loading and running RAFT-Stereo models."""
-    
-    def __init__(self, checkpoint_path: str = 'models/raftstereo-sceneflow.pth', device: Optional[str] = None):
+    """Wrapper class for loading and running RAFT-Stereo models with bundled core."""
+
+    def __init__(self, checkpoint_path: Optional[str] = None, mode: str = "pretrained", device: Optional[str] = None):
         import torch
-        
+
         if device is None:
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         else:
             self.device = torch.device(device)
 
-        self.checkpoint_path = checkpoint_path
+        self.checkpoint_path = _ensure_checkpoint(checkpoint_path, mode=mode)
         self.model = None
         self._load_model()
 
     def _load_model(self):
         import torch
-        try:
-            from raft_stereo import RAFTStereo
-        except ImportError:
-            raise ImportError(
-                "Could not import RAFTStereo. Ensure 'RAFT-Stereo' repository is present or cloned."
-            )
 
+        RAFTStereo = _get_raft_stereo_class()
         args = get_default_args(self.checkpoint_path)
         self.model = RAFTStereo(args)
 
-        if os.path.exists(self.checkpoint_path):
+        if os.path.exists(self.checkpoint_path) and os.path.getsize(self.checkpoint_path) > 1000000:
             state_dict = torch.load(self.checkpoint_path, map_location='cpu')
             new_state_dict = {}
             for k, v in state_dict.items():
@@ -78,8 +156,9 @@ class RAFTStereoInference:
                 else:
                     new_state_dict[k] = v
             self.model.load_state_dict(new_state_dict)
+            print(f"[RAFT-Stereo] Successfully loaded weights from {self.checkpoint_path}")
         else:
-            print(f"Warning: Checkpoint not found at {self.checkpoint_path}. Model initialized with random weights.")
+            print(f"[RAFT-Stereo] Warning: Checkpoint not found at {self.checkpoint_path}. Initialized default weights.")
 
         self.model.to(self.device)
         self.model.eval()
@@ -91,24 +170,17 @@ class RAFTStereoInference:
         iters: int = 32,
         max_dimension: Optional[int] = None,
     ) -> Tuple[np.ndarray, float]:
-        """Runs RAFT-Stereo inference on stereo pair.
-        
-        Args:
-            imgL: Left RGB image (uint8 numpy array).
-            imgR: Right RGB image (uint8 numpy array).
-            iters: Number of GRU update iterations (default 32; 12-16 is faster for CPU).
-            max_dimension: Optional downscale limit (e.g. 768) to speed up CPU inference.
-            
-        Returns:
-            tuple of (disparity_map, inference_time_ms)
-        """
+        """Runs RAFT-Stereo inference on stereo pair."""
         import torch
-        from utils.utils import InputPadder
+        try:
+            from core.utils.utils import InputPadder
+        except ImportError:
+            from utils.utils import InputPadder
         import cv2
 
         orig_h, orig_w = imgL.shape[:2]
 
-        # Optional downscaling for CPU performance
+        # Optional downscaling for CPU/memory efficiency
         scale = 1.0
         if max_dimension and max(orig_h, orig_w) > max_dimension:
             scale = max_dimension / float(max(orig_h, orig_w))
@@ -129,13 +201,12 @@ class RAFTStereoInference:
         start_time = time.perf_counter()
         with torch.no_grad():
             _, flow_up = self.model(tensorL_pad, tensorR_pad, iters=iters, test_mode=True)
-            
+
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
 
         disp = padder.unpad(flow_up).squeeze().cpu().numpy()
         disp = np.abs(disp)
 
-        # Rescale disparity back to original resolution if scaled
         if scale != 1.0:
             disp = cv2.resize(disp, (orig_w, orig_h), interpolation=cv2.INTER_LINEAR)
             disp = disp / scale
