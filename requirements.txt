@@ -9,7 +9,9 @@ einops>=0.6.0
 scipy>=1.10.0
 
 # Interactive Web Application
-gradio>=4.40.0
+# Keep this version in sync with README.md's Hugging Face sdk_version.
+# Includes ImageSlider and boolean JSON-schema support in gradio_client.
+gradio==5.49.1
 
 # Utilities
 gdown>=5.0.0

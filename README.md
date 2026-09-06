@@ -4,7 +4,7 @@ emoji: 👁️
 colorFrom: indigo
 colorTo: purple
 sdk: gradio
-sdk_version: 4.44.0
+sdk_version: 5.49.1
 app_file: app.py
 pinned: false
 license: mit
@@ -15,7 +15,7 @@ license: mit
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)]()
 [![OpenCV](https://img.shields.io/badge/OpenCV-4.x-green.svg)]()
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.x-red.svg)]()
-[![Gradio](https://img.shields.io/badge/Gradio-4.x-orange.svg)]()
+[![Gradio](https://img.shields.io/badge/Gradio-5.49.1-orange.svg)]()
 [![License](https://img.shields.io/badge/License-Educational-lightgrey.svg)]()
 
 A comprehensive Computer Vision project for **CO543 / CO5430** that estimates disparity and relative depth from rectified stereo image pairs using both classical stereo matching algorithms (**StereoBM**, **StereoSGBM**) and deep learning (**RAFT-Stereo** with few-shot domain adaptation).
@@ -72,6 +72,14 @@ Run these commands in a Colab notebook cell:
    git push space main
    ```
    Hugging Face will automatically build and host the interactive web app!
+
+Keep `sdk_version` above and the Gradio pin in `requirements.txt` at the same
+version. Gradio 5.49.1 provides the built-in `ImageSlider` and handles boolean
+JSON schemas that caused the Gradio 4.44.0 startup crash (`TypeError: argument
+of type 'bool' is not iterable`). The subsequent localhost/share-link error
+was a consequence of the failed HTTP response; Spaces does not need `share=True`.
+For an existing Space, deploy both updated files and rebuild it. For a local
+installation, rerun `python -m pip install -r requirements.txt`.
 
 ### Option C: Run Locally
 ```bash
