@@ -148,7 +148,10 @@ class RAFTStereoInference:
         self.model = RAFTStereo(args)
 
         if os.path.exists(self.checkpoint_path) and os.path.getsize(self.checkpoint_path) > 1000000:
-            state_dict = torch.load(self.checkpoint_path, map_location='cpu')
+            try:
+                state_dict = torch.load(self.checkpoint_path, map_location='cpu', weights_only=True)
+            except Exception:
+                state_dict = torch.load(self.checkpoint_path, map_location='cpu', weights_only=False)
             new_state_dict = {}
             for k, v in state_dict.items():
                 if k.startswith('module.'):

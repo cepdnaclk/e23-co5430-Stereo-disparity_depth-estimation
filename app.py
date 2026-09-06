@@ -56,32 +56,37 @@ def _get_raft(mode="pretrained"):
     try:
         from src.raft_wrapper import RAFTStereoInference
     except Exception as e:
-        return None, str(e)
+        import traceback
+        return None, f"ImportError:\n{traceback.format_exc()}"
     if mode == "pretrained":
         if _RAFT_PRE is None:
             ckpt = ""
             for p in [os.path.join(current_dir, "models", "raftstereo-sceneflow.pth"),
+                      os.path.join(current_dir, "core", "models", "raftstereo-sceneflow.pth"),
                       "/content/RAFT-Stereo/models/raftstereo-sceneflow.pth"]:
                 if os.path.exists(p):
                     ckpt = p
                     break
             try:
-                _RAFT_PRE = RAFTStereoInference(checkpoint_path=ckpt)
+                _RAFT_PRE = RAFTStereoInference(checkpoint_path=ckpt, mode="pretrained")
             except Exception as e:
-                return None, str(e)
+                import traceback
+                return None, f"InitError:\n{traceback.format_exc()}"
         return _RAFT_PRE, "OK"
     elif mode == "finetuned":
         if _RAFT_FINE is None:
             ckpt = ""
             for p in [os.path.join(current_dir, "models", "my_finetuned_raft_v2.pth"),
+                      os.path.join(current_dir, "models", "raftstereo-middlebury.pth"),
                       "/content/my_finetuned_raft_v2.pth"]:
                 if os.path.exists(p):
                     ckpt = p
                     break
             try:
-                _RAFT_FINE = RAFTStereoInference(checkpoint_path=ckpt)
+                _RAFT_FINE = RAFTStereoInference(checkpoint_path=ckpt, mode="finetuned")
             except Exception as e:
-                return None, str(e)
+                import traceback
+                return None, f"InitError:\n{traceback.format_exc()}"
         return _RAFT_FINE, "OK"
     return None, "Invalid mode"
 
@@ -168,12 +173,20 @@ def cb_single(imgL, imgR, method, block_size, num_disp, uniq, cmap):
         raft, status = _get_raft("pretrained")
         if raft is None:
             raise gr.Error("Pretrained RAFT unavailable: " + status)
-        disp, ms = raft.compute_disparity(imgL, imgR, iters=32, max_dimension=768)
+        try:
+            disp, ms = raft.compute_disparity(imgL, imgR, iters=32, max_dimension=768)
+        except Exception as e:
+            import traceback
+            raise gr.Error(f"Pretrained RAFT computation error: {e}")
     else:
         raft, status = _get_raft("finetuned")
         if raft is None:
             raise gr.Error("Fine-tuned RAFT unavailable: " + status)
-        disp, ms = raft.compute_disparity(imgL, imgR, iters=32, max_dimension=768)
+        try:
+            disp, ms = raft.compute_disparity(imgL, imgR, iters=32, max_dimension=768)
+        except Exception as e:
+            import traceback
+            raise gr.Error(f"Fine-tuned RAFT computation error: {e}")
     color_disp = colorize_disparity(disp, cmap_name=cmap)
     valid = disp[disp > 0]
     d_min = float(np.min(valid)) if valid.size else 0.0
