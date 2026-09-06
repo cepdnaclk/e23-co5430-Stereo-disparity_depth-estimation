@@ -6,19 +6,21 @@ Group G03 | Project ID: P12 | University of Peradeniya
 import os
 import sys
 
-# Fix: huggingface_hub >= 0.25 removed HfFolder which Gradio 4.x needs.
-# Inject a stub BEFORE importing gradio so gradio/oauth.py never crashes.
-import huggingface_hub as _hfhub
-if not hasattr(_hfhub, "HfFolder"):
-    class _HfFolderStub:
-        @staticmethod
-        def get_token(): return os.environ.get("HF_TOKEN") or None
-        @staticmethod
-        def save_token(token): pass
-        @staticmethod
-        def delete_token(): pass
-    _hfhub.HfFolder = _HfFolderStub
-    sys.modules["huggingface_hub"].HfFolder = _HfFolderStub
+# Optional compatibility shim for environments with legacy gradio
+try:
+    import huggingface_hub as _hfhub
+    if not hasattr(_hfhub, "HfFolder"):
+        class _HfFolderStub:
+            @staticmethod
+            def get_token(): return os.environ.get("HF_TOKEN") or None
+            @staticmethod
+            def save_token(token): pass
+            @staticmethod
+            def delete_token(): pass
+        _hfhub.HfFolder = _HfFolderStub
+        sys.modules["huggingface_hub"].HfFolder = _HfFolderStub
+except Exception:
+    pass
 
 import numpy as np
 import cv2
@@ -346,9 +348,16 @@ Feature extractors + 4-level correlation pyramid + recurrent GRU update (12-32 i
                  outputs=[t3_gt_vis, t3_pred_vis, t3_err_vis, t3_metrics])
 
 if __name__ == "__main__":
-    is_hf_space = os.environ.get("SPACE_ID") is not None
-    is_colab    = "google.colab" in sys.modules or os.environ.get("COLAB_GPU") is not None
-    if is_colab:
-        demo.launch(share=True)
-    else:
-        demo.launch()
+    import inspect
+    is_colab = "google.colab" in sys.modules or os.environ.get("COLAB_GPU") is not None
+    
+    launch_opts = {
+        "server_name": "0.0.0.0",
+        "server_port": 7860,
+        "share": is_colab,
+    }
+    # Disable experimental Node.js SSR on Gradio 5 to ensure reliable container execution
+    if "ssr_mode" in inspect.signature(demo.launch).parameters:
+        launch_opts["ssr_mode"] = False
+
+    demo.launch(**launch_opts)
