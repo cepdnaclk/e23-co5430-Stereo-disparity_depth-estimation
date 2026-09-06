@@ -26,6 +26,18 @@ import numpy as np
 import cv2
 import gradio as gr
 
+# Hugging Face ZeroGPU compatibility: import spaces or fallback to no-op
+try:
+    import spaces
+except ImportError:
+    class _MockSpaces:
+        @staticmethod
+        def GPU(fn=None, duration=None):
+            def decorator(f):
+                return f
+            return decorator if fn is None else fn
+    spaces = _MockSpaces()
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
@@ -136,6 +148,7 @@ METHODS = [
     "RAFT-Stereo (Fine-Tuned Middlebury)",
 ]
 
+@spaces.GPU
 def cb_single(imgL, imgR, method, block_size, num_disp, uniq, cmap):
     if imgL is None or imgR is None:
         raise gr.Error("Please upload both Left and Right stereo images.")
@@ -173,6 +186,7 @@ def cb_single(imgL, imgR, method, block_size, num_disp, uniq, cmap):
              "**Valid Pixel Ratio:** " + str(round(pct,1)) + "%")
     return imgL, color_disp, stats
 
+@spaces.GPU
 def cb_compare(imgL, imgR, cmap):
     if imgL is None or imgR is None:
         raise gr.Error("Please upload both Left and Right stereo images.")
@@ -203,6 +217,7 @@ def cb_compare(imgL, imgR, cmap):
         gr.update(value=fine_vis, label=fine_lbl),
     )
 
+@spaces.GPU
 def cb_evaluate(imgL, imgR, gt_file, method, bad_thresh):
     if imgL is None or imgR is None:
         raise gr.Error("Please upload Left and Right stereo images.")
