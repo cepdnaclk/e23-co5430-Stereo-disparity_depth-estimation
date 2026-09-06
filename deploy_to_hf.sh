@@ -98,6 +98,11 @@ for pyfile in src/*.py; do
     fi
 done
 
+# Stage bundled RAFT-Stereo core python files
+if [ -d "core" ]; then
+    GIT_INDEX_FILE="$TMP_INDEX" git add -f core/*.py core/utils/*.py
+fi
+
 # Create tree object from isolated index
 TREE_HASH=$(GIT_INDEX_FILE="$TMP_INDEX" git write-tree)
 
