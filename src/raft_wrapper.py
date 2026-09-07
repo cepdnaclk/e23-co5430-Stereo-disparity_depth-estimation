@@ -131,11 +131,7 @@ class RAFTStereoInference:
     def __init__(self, checkpoint_path: Optional[str] = None, mode: str = "pretrained", device: Optional[str] = None):
         import torch
 
-        if device is None:
-            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        else:
-            self.device = torch.device(device)
-
+        self.device = torch.device(device) if device else torch.device('cpu')
         self.checkpoint_path = _ensure_checkpoint(checkpoint_path, mode=mode)
         self.model = None
         self._load_model()
@@ -158,7 +154,7 @@ class RAFTStereoInference:
                     new_state_dict[k[7:]] = v
                 else:
                     new_state_dict[k] = v
-            self.model.load_state_dict(new_state_dict)
+            self.model.load_state_dict(new_state_dict, strict=False)
             print(f"[RAFT-Stereo] Successfully loaded weights from {self.checkpoint_path}")
         else:
             print(f"[RAFT-Stereo] Warning: Checkpoint not found at {self.checkpoint_path}. Initialized default weights.")
@@ -183,6 +179,10 @@ class RAFTStereoInference:
 
         orig_h, orig_w = imgL.shape[:2]
 
+        # Dynamically use CUDA when inside an active ZeroGPU or GPU context
+        exec_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model.to(exec_device)
+
         # Optional downscaling for CPU/memory efficiency
         scale = 1.0
         if max_dimension and max(orig_h, orig_w) > max_dimension:
@@ -195,8 +195,8 @@ class RAFTStereoInference:
             imgL_in = imgL
             imgR_in = imgR
 
-        tensorL = torch.from_numpy(imgL_in).permute(2, 0, 1).float()[None].to(self.device)
-        tensorR = torch.from_numpy(imgR_in).permute(2, 0, 1).float()[None].to(self.device)
+        tensorL = torch.from_numpy(imgL_in).permute(2, 0, 1).float()[None].to(exec_device)
+        tensorR = torch.from_numpy(imgR_in).permute(2, 0, 1).float()[None].to(exec_device)
 
         padder = InputPadder(tensorL.shape, divis_by=32)
         tensorL_pad, tensorR_pad = padder.pad(tensorL, tensorR)
@@ -209,6 +209,11 @@ class RAFTStereoInference:
 
         disp = padder.unpad(flow_up).squeeze().cpu().numpy()
         disp = np.abs(disp)
+
+        # Release GPU memory cleanly for ZeroGPU
+        if exec_device.type == 'cuda':
+            self.model.to('cpu')
+            torch.cuda.empty_cache()
 
         if scale != 1.0:
             disp = cv2.resize(disp, (orig_w, orig_h), interpolation=cv2.INTER_LINEAR)

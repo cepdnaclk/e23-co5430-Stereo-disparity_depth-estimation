@@ -51,6 +51,14 @@ from src.visualization import colorize_disparity, create_error_heatmap
 _RAFT_PRE  = None
 _RAFT_FINE = None
 
+# Pre-download RAFT checkpoints at startup so inference is instant
+try:
+    from src.raft_wrapper import _ensure_checkpoint
+    _ensure_checkpoint(None, mode="pretrained")
+    _ensure_checkpoint(None, mode="finetuned")
+except Exception as _e:
+    print(f"[Startup] Checkpoint pre-download warning: {_e}")
+
 def _get_raft(mode="pretrained"):
     global _RAFT_PRE, _RAFT_FINE
     try:
@@ -153,124 +161,151 @@ METHODS = [
     "RAFT-Stereo (Fine-Tuned Middlebury)",
 ]
 
-@spaces.GPU
+@spaces.GPU(duration=60)
 def cb_single(imgL, imgR, method, block_size, num_disp, uniq, cmap):
     if imgL is None or imgR is None:
-        raise gr.Error("Please upload both Left and Right stereo images.")
-    imgL, imgR = _rgb(imgL), _rgb(imgR)
-    imgL, imgR = _align(imgL, imgR)
-    h, w = imgL.shape[:2]
-    if "SGBM" in method:
-        disp, ms = compute_stereo_sgbm(imgL, imgR, num_disparities=int(num_disp),
-                                        block_size=int(block_size), uniqueness_ratio=int(uniq))
-    elif "StereoBM" in method:
-        bs = max(5, int(block_size))
-        if bs % 2 == 0:
-            bs += 1
-        disp, ms = compute_stereo_bm(imgL, imgR, num_disparities=int(num_disp),
-                                      block_size=bs, uniqueness_ratio=int(uniq))
-    elif "Pre-trained" in method:
-        raft, status = _get_raft("pretrained")
-        if raft is None:
-            raise gr.Error("Pretrained RAFT unavailable: " + status)
-        try:
+        return None, None, "Please upload both Left and Right stereo images."
+    try:
+        imgL, imgR = _rgb(imgL), _rgb(imgR)
+        imgL, imgR = _align(imgL, imgR)
+        h, w = imgL.shape[:2]
+        if "SGBM" in method:
+            disp, ms = compute_stereo_sgbm(imgL, imgR, num_disparities=int(num_disp),
+                                            block_size=int(block_size), uniqueness_ratio=int(uniq))
+        elif "StereoBM" in method:
+            bs = max(5, int(block_size))
+            if bs % 2 == 0:
+                bs += 1
+            disp, ms = compute_stereo_bm(imgL, imgR, num_disparities=int(num_disp),
+                                          block_size=bs, uniqueness_ratio=int(uniq))
+        elif "Pre-trained" in method:
+            raft, status = _get_raft("pretrained")
+            if raft is None:
+                blank = np.zeros_like(imgL)
+                return imgL, blank, f"### Pre-trained RAFT Unavailable\n```\n{status}\n```"
             disp, ms = raft.compute_disparity(imgL, imgR, iters=32, max_dimension=768)
-        except Exception as e:
-            import traceback
-            raise gr.Error(f"Pretrained RAFT computation error: {e}")
-    else:
-        raft, status = _get_raft("finetuned")
-        if raft is None:
-            raise gr.Error("Fine-tuned RAFT unavailable: " + status)
-        try:
+        else:
+            raft, status = _get_raft("finetuned")
+            if raft is None:
+                blank = np.zeros_like(imgL)
+                return imgL, blank, f"### Fine-tuned RAFT Unavailable\n```\n{status}\n```"
             disp, ms = raft.compute_disparity(imgL, imgR, iters=32, max_dimension=768)
-        except Exception as e:
-            import traceback
-            raise gr.Error(f"Fine-tuned RAFT computation error: {e}")
-    color_disp = colorize_disparity(disp, cmap_name=cmap)
-    valid = disp[disp > 0]
-    d_min = float(np.min(valid)) if valid.size else 0.0
-    d_max = float(np.max(valid)) if valid.size else 0.0
-    pct   = (valid.size / disp.size) * 100.0
-    stats = ("**Algorithm:** " + method + "  \n" +
-             "**Inference Time:** " + str(round(ms,1)) + " ms  \n" +
-             "**Resolution:** " + str(w) + " x " + str(h) + " px  \n" +
-             "**Disparity Range:** " + str(round(d_min,1)) + " - " + str(round(d_max,1)) + " px  \n" +
-             "**Valid Pixel Ratio:** " + str(round(pct,1)) + "%")
-    return imgL, color_disp, stats
+        color_disp = colorize_disparity(disp, cmap_name=cmap)
+        valid = disp[disp > 0]
+        d_min = float(np.min(valid)) if valid.size else 0.0
+        d_max = float(np.max(valid)) if valid.size else 0.0
+        pct   = (valid.size / disp.size) * 100.0
+        stats = ("**Algorithm:** " + method + "  \n" +
+                 "**Inference Time:** " + str(round(ms,1)) + " ms  \n" +
+                 "**Resolution:** " + str(w) + " x " + str(h) + " px  \n" +
+                 "**Disparity Range:** " + str(round(d_min,1)) + " - " + str(round(d_max,1)) + " px  \n" +
+                 "**Valid Pixel Ratio:** " + str(round(pct,1)) + "%")
+        return imgL, color_disp, stats
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[cb_single error]: {tb}")
+        blank = np.zeros_like(imgL) if imgL is not None else np.zeros((360, 480, 3), dtype=np.uint8)
+        return imgL if imgL is not None else blank, blank, f"### Error running {method}\n```\n{tb}\n```"
 
-@spaces.GPU
+@spaces.GPU(duration=60)
 def cb_compare(imgL, imgR, cmap):
     if imgL is None or imgR is None:
-        raise gr.Error("Please upload both Left and Right stereo images.")
-    imgL, imgR = _rgb(imgL), _rgb(imgR)
-    imgL, imgR = _align(imgL, imgR)
-    bm_d,   bm_ms   = compute_stereo_bm(imgL, imgR, num_disparities=160, block_size=25)
-    sgbm_d, sgbm_ms = compute_stereo_sgbm(imgL, imgR, num_disparities=160, block_size=3, uniqueness_ratio=10)
-    raft_pre, _ = _get_raft("pretrained")
-    if raft_pre:
-        pre_d, pre_ms = raft_pre.compute_disparity(imgL, imgR, iters=24, max_dimension=768)
-        pre_vis = colorize_disparity(pre_d, cmap_name=cmap)
-        pre_lbl = "RAFT Pretrained (" + str(round(pre_ms)) + " ms)"
-    else:
-        pre_vis = np.zeros_like(imgL)
-        pre_lbl = "Pretrained RAFT - checkpoint not found"
-    raft_fine, _ = _get_raft("finetuned")
-    if raft_fine:
-        fine_d, fine_ms = raft_fine.compute_disparity(imgL, imgR, iters=24, max_dimension=768)
-        fine_vis = colorize_disparity(fine_d, cmap_name=cmap)
-        fine_lbl = "RAFT Fine-tuned (" + str(round(fine_ms)) + " ms)"
-    else:
-        fine_vis = np.zeros_like(imgL)
-        fine_lbl = "Fine-tuned RAFT - checkpoint not found"
-    return (
-        gr.update(value=colorize_disparity(bm_d,   cmap_name=cmap), label="StereoBM (" + str(round(bm_ms)) + " ms)"),
-        gr.update(value=colorize_disparity(sgbm_d, cmap_name=cmap), label="StereoSGBM (" + str(round(sgbm_ms)) + " ms)"),
-        gr.update(value=pre_vis,  label=pre_lbl),
-        gr.update(value=fine_vis, label=fine_lbl),
-    )
+        return (gr.update(), gr.update(), gr.update(), gr.update())
+    try:
+        imgL, imgR = _rgb(imgL), _rgb(imgR)
+        imgL, imgR = _align(imgL, imgR)
+        bm_d,   bm_ms   = compute_stereo_bm(imgL, imgR, num_disparities=160, block_size=25)
+        sgbm_d, sgbm_ms = compute_stereo_sgbm(imgL, imgR, num_disparities=160, block_size=3, uniqueness_ratio=10)
+        raft_pre, _ = _get_raft("pretrained")
+        if raft_pre:
+            try:
+                pre_d, pre_ms = raft_pre.compute_disparity(imgL, imgR, iters=24, max_dimension=768)
+                pre_vis = colorize_disparity(pre_d, cmap_name=cmap)
+                pre_lbl = "RAFT Pretrained (" + str(round(pre_ms)) + " ms)"
+            except Exception as e:
+                pre_vis = np.zeros_like(imgL)
+                pre_lbl = f"RAFT Pretrained error: {e}"
+        else:
+            pre_vis = np.zeros_like(imgL)
+            pre_lbl = "Pretrained RAFT - unavailable"
+        raft_fine, _ = _get_raft("finetuned")
+        if raft_fine:
+            try:
+                fine_d, fine_ms = raft_fine.compute_disparity(imgL, imgR, iters=24, max_dimension=768)
+                fine_vis = colorize_disparity(fine_d, cmap_name=cmap)
+                fine_lbl = "RAFT Fine-tuned (" + str(round(fine_ms)) + " ms)"
+            except Exception as e:
+                fine_vis = np.zeros_like(imgL)
+                fine_lbl = f"RAFT Fine-tuned error: {e}"
+        else:
+            fine_vis = np.zeros_like(imgL)
+            fine_lbl = "Fine-tuned RAFT - unavailable"
+        return (
+            gr.update(value=colorize_disparity(bm_d,   cmap_name=cmap), label="StereoBM (" + str(round(bm_ms)) + " ms)"),
+            gr.update(value=colorize_disparity(sgbm_d, cmap_name=cmap), label="StereoSGBM (" + str(round(sgbm_ms)) + " ms)"),
+            gr.update(value=pre_vis,  label=pre_lbl),
+            gr.update(value=fine_vis, label=fine_lbl),
+        )
+    except Exception as e:
+        import traceback
+        print(f"[cb_compare error]: {traceback.format_exc()}")
+        blank = np.zeros_like(imgL) if imgL is not None else np.zeros((360, 480, 3), dtype=np.uint8)
+        return (
+            gr.update(value=blank, label="StereoBM error"),
+            gr.update(value=blank, label="StereoSGBM error"),
+            gr.update(value=blank, label=f"Error: {e}"),
+            gr.update(value=blank, label=f"Error: {e}")
+        )
 
-@spaces.GPU
+@spaces.GPU(duration=60)
 def cb_evaluate(imgL, imgR, gt_file, method, bad_thresh):
     if imgL is None or imgR is None:
         raise gr.Error("Please upload Left and Right stereo images.")
     if gt_file is None:
         raise gr.Error("Please upload a ground-truth disparity file (.pfm or .png).")
-    imgL, imgR = _rgb(imgL), _rgb(imgR)
-    imgL, imgR = _align(imgL, imgR)
-    gt_path = gt_file if isinstance(gt_file, str) else gt_file.name
-    if gt_path.lower().endswith(".pfm"):
-        disp_gt = read_pfm(gt_path)
-    else:
-        raw = cv2.imread(gt_path, cv2.IMREAD_UNCHANGED)
-        if raw is None:
-            raise gr.Error("Cannot read GT file: " + gt_path)
-        disp_gt = (cv2.cvtColor(raw, cv2.COLOR_BGR2GRAY) if len(raw.shape)==3 else raw).astype(np.float32)
-    if "SGBM" in method:
-        disp_pred, _ = compute_stereo_sgbm(imgL, imgR, num_disparities=160, block_size=3)
-    elif "StereoBM" in method:
-        disp_pred, _ = compute_stereo_bm(imgL, imgR, num_disparities=160, block_size=25)
-    elif "Pre-trained" in method:
-        raft, _ = _get_raft("pretrained")
-        if raft is None:
-            raise gr.Error("Pretrained RAFT checkpoint not found.")
-        disp_pred, _ = raft.compute_disparity(imgL, imgR, iters=32)
-    else:
-        raft, _ = _get_raft("finetuned")
-        if raft is None:
-            raise gr.Error("Fine-tuned RAFT checkpoint not found.")
-        disp_pred, _ = raft.compute_disparity(imgL, imgR, iters=32)
-    m = calculate_metrics(disp_gt, disp_pred, bad_threshold=float(bad_thresh))
-    md = ("### Benchmark Results\n| Metric | Value |\n| :--- | :---: |\n" +
-          "| **RMSE** | " + str(round(m["rmse"],4)) + " px |\n" +
-          "| **AbsRel** | " + str(round(m["absrel"],4)) + " |\n" +
-          "| **Bad-" + str(int(bad_thresh)) + "px (D1)** | " + str(round(m["bad_pixel_rate"],2)) + "% |\n" +
-          "| **EPE** | " + str(round(m["epe"],4)) + " px |\n" +
-          "| **Valid Pixels** | " + str(m["valid_pixels"]) + " |")
-    return (colorize_disparity(disp_gt, "plasma"),
-            colorize_disparity(disp_pred, "plasma"),
-            create_error_heatmap(disp_gt, disp_pred, bad_threshold=float(bad_thresh)),
-            md)
+    try:
+        imgL, imgR = _rgb(imgL), _rgb(imgR)
+        imgL, imgR = _align(imgL, imgR)
+        gt_path = gt_file if isinstance(gt_file, str) else gt_file.name
+        if gt_path.lower().endswith(".pfm"):
+            disp_gt = read_pfm(gt_path)
+        else:
+            raw = cv2.imread(gt_path, cv2.IMREAD_UNCHANGED)
+            if raw is None:
+                raise ValueError("Cannot read GT file: " + gt_path)
+            disp_gt = (cv2.cvtColor(raw, cv2.COLOR_BGR2GRAY) if len(raw.shape)==3 else raw).astype(np.float32)
+        if "SGBM" in method:
+            disp_pred, _ = compute_stereo_sgbm(imgL, imgR, num_disparities=160, block_size=3)
+        elif "StereoBM" in method:
+            disp_pred, _ = compute_stereo_bm(imgL, imgR, num_disparities=160, block_size=25)
+        elif "Pre-trained" in method:
+            raft, status = _get_raft("pretrained")
+            if raft is None:
+                raise ValueError("Pretrained RAFT unavailable: " + status)
+            disp_pred, _ = raft.compute_disparity(imgL, imgR, iters=32, max_dimension=768)
+        else:
+            raft, status = _get_raft("finetuned")
+            if raft is None:
+                raise ValueError("Fine-tuned RAFT unavailable: " + status)
+            disp_pred, _ = raft.compute_disparity(imgL, imgR, iters=32, max_dimension=768)
+        m = calculate_metrics(disp_gt, disp_pred, bad_threshold=float(bad_thresh))
+        md = ("### Benchmark Results\n| Metric | Value |\n| :--- | :---: |\n" +
+              "| **RMSE** | " + str(round(m["rmse"],4)) + " px |\n" +
+              "| **AbsRel** | " + str(round(m["absrel"],4)) + " |\n" +
+              "| **Bad-" + str(int(bad_thresh)) + "px (D1)** | " + str(round(m["bad_pixel_rate"],2)) + "% |\n" +
+              "| **EPE** | " + str(round(m["epe"],4)) + " px |\n" +
+              "| **Valid Pixels** | " + str(m["valid_pixels"]) + " |")
+        return (colorize_disparity(disp_gt, "plasma"),
+                colorize_disparity(disp_pred, "plasma"),
+                create_error_heatmap(disp_gt, disp_pred, bad_threshold=float(bad_thresh)),
+                md)
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[cb_evaluate error]: {tb}")
+        blank = np.zeros_like(imgL) if imgL is not None else np.zeros((360, 480, 3), dtype=np.uint8)
+        return blank, blank, blank, f"### Evaluation Error\n```\n{tb}\n```"
 
 CSS = ".gradio-container{max-width:1200px!important;margin:auto} .metric-box{border-radius:8px;padding:10px;background:#f4f4f8}"
 
