@@ -13,13 +13,13 @@ def colorize_disparity(
     vmax: Optional[float] = None,
     invalid_color: Tuple[int, int, int] = (0, 0, 0),
 ) -> np.ndarray:
-    """Colorizes a 2D disparity map into an RGB uint8 image.
+    """Colorizes a 2D disparity map into an RGB uint8 image with robust dynamic range scaling.
     
     Args:
         disp: 2D float array of disparities.
         cmap_name: Matplotlib colormap name ('plasma', 'turbo', 'viridis', 'magma').
-        vmin: Minimum value for colormap scaling. If None, computes 1st percentile of valid pixels.
-        vmax: Maximum value for colormap scaling. If None, computes 99th percentile of valid pixels.
+        vmin: Minimum value for colormap scaling. If None, computes robust lower percentile.
+        vmax: Maximum value for colormap scaling. If None, computes robust upper percentile.
         invalid_color: RGB tuple for pixels where disp <= 0.
         
     Returns:
@@ -31,15 +31,30 @@ def colorize_disparity(
         return np.zeros((disp.shape[0], disp.shape[1], 3), dtype=np.uint8)
 
     valid_vals = disp[valid_mask]
-    if vmin is None:
-        vmin = float(np.percentile(valid_vals, 1))
-    if vmax is None:
-        vmax = float(np.percentile(valid_vals, 99))
+    
+    if vmin is None or vmax is None:
+        # Exclude outer frame margins (2.5%) when estimating dynamic range bounds
+        # to prevent boundary padding / edge extrapolation spikes from compressing colors
+        h, w = disp.shape[:2]
+        by = max(1, int(h * 0.025))
+        bx = max(1, int(w * 0.025))
+        if h > 2 * by and w > 2 * bx:
+            interior = disp[by : h - by, bx : w - bx]
+            interior_valid = interior[(interior > 0) & np.isfinite(interior)]
+        else:
+            interior_valid = np.array([], dtype=np.float32)
+
+        ref_vals = interior_valid if interior_valid.size > 200 else valid_vals
+
+        if vmin is None:
+            vmin = float(np.percentile(ref_vals, 2))
+        if vmax is None:
+            vmax = float(np.percentile(ref_vals, 98))
 
     if vmax <= vmin:
         vmax = vmin + 1.0
 
-    # Normalize between 0.0 and 1.0
+    # Normalize between 0.0 and 1.0 with robust clipping
     norm_disp = np.clip((disp - vmin) / (vmax - vmin), 0.0, 1.0)
 
     # Apply colormap
