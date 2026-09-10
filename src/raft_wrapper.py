@@ -210,6 +210,15 @@ class RAFTStereoInference:
         disp = padder.unpad(flow_up).squeeze().cpu().numpy()
         disp = np.abs(disp)
 
+        # Suppress boundary edge extrapolation spikes from padding before resizing
+        h_disp, w_disp = disp.shape[:2]
+        b = max(2, int(min(h_disp, w_disp) * 0.015))
+        if b > 0 and h_disp > 2 * b and w_disp > 2 * b:
+            disp[:b, :] = disp[b:b+1, :]
+            disp[-b:, :] = disp[-b-1:-b, :]
+            disp[:, :b] = disp[:, b:b+1]
+            disp[:, -b:] = disp[:, -b-1:-b]
+
         # Release GPU memory cleanly for ZeroGPU
         if exec_device.type == 'cuda':
             self.model.to('cpu')
