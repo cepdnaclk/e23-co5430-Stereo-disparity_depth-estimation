@@ -252,7 +252,6 @@ Direct clickable links to source modules, deployment scripts, test suites, and a
 | [📦 `requirements.txt`](requirements.txt) | Config | Python package dependencies pinned for Gradio 5.49.1 and PyTorch |
 | [📄 `README.md`](README.md) | Docs | Project overview, benchmarks, epipolar geometry, and setup guide |
 | [📜 `LICENSE`](LICENSE) | Legal | MIT Open-Source License |
-| [⚙️ `generate_ieee_report.py`](generate_ieee_report.py) | Script | Automated IEEE-format report generation script |
 | **📁 `deploy/`** | Directory | **Hugging Face Spaces cross-platform deployment automation** |
 | ├── [🐚 `deploy/deploy_to_hf.sh`](deploy/deploy_to_hf.sh) | Script | Isolated Git packager and deployment script for Linux/macOS/WSL |
 | ├── [💻 `deploy/deploy_to_hf.bat`](deploy/deploy_to_hf.bat) | Script | Windows Command Prompt deployment tool with root auto-detection |

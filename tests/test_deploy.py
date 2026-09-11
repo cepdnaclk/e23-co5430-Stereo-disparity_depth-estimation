@@ -95,17 +95,13 @@ class DeploymentStructureTests(unittest.TestCase):
         self.assertIn("Split-Path -Parent $ScriptDir", ps1_content)
         self.assertIn(".\\deploy\\deploy_to_hf.ps1", ps1_content)
 
-    def test_documentation_and_reports_reference_deploy_folder(self):
-        """README.md and generate_ieee_report.py must reference the new deploy/ paths."""
+    def test_documentation_references_deploy_folder(self):
+        """README.md must reference the new deploy/ paths."""
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("./deploy/deploy_to_hf.sh", readme)
         self.assertIn(r"deploy\deploy_to_hf.bat", readme)
         self.assertIn(r".\deploy\deploy_to_hf.ps1", readme)
         self.assertIn("├── deploy/", readme)
-
-        report_gen = (REPO_ROOT / "generate_ieee_report.py").read_text(encoding="utf-8")
-        self.assertIn("deploy/deploy_to_hf.sh", report_gen)
-        self.assertNotIn('"deploy_to_hf.sh"', report_gen)
 
 
 if __name__ == "__main__":
