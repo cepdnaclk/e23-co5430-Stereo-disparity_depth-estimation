@@ -220,7 +220,7 @@ __marimo__/
 
 # Dataset files
 data/raw/
-daat/processed/
+data/processed/
 
 # Generated outputs
 outputs/

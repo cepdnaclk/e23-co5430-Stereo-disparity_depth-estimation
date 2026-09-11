@@ -7,7 +7,10 @@ echo   Repository: e23-co5430-Stereo-disparity_depth-estimation
 echo ============================================================
 echo.
 
-:: 1. Verify Git installation
+:: 1. Navigate to repository root (parent directory of this script)
+cd /d "%~dp0.."
+
+:: 2. Verify Git installation
 where git >nul 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] Git was not found in your PATH.
@@ -16,10 +19,11 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: 2. Verify repository root files
+:: 3. Verify repository root files
 if not exist "app.py" (
-    echo [ERROR] app.py not found in current directory.
-    echo Please run this script from the root directory of the repository.
+    echo [ERROR] app.py not found in repository root.
+    echo Please ensure this script is in the deploy\ directory of the repository:
+    echo   deploy\deploy_to_hf.bat
     pause
     exit /b 1
 )
