@@ -193,7 +193,6 @@ deploy\deploy_to_hf.bat
 e23-co5430-Stereo-disparity_depth-estimation/
 ├── app.py                     # Production Gradio 5 application with ZeroGPU hooks
 ├── requirements.txt           # Python dependency specifications
-├── packages.txt               # Debian system dependencies for Spaces container
 ├── deploy/                    # Automated deployment scripts for Hugging Face Spaces
 │   ├── deploy_to_hf.sh        # Linux / macOS / WSL deployment script
 │   ├── deploy_to_hf.bat       # Windows Command Prompt deployment script
@@ -251,7 +250,6 @@ Direct clickable links to source modules, deployment scripts, test suites, and a
 | :--- | :---: | :--- |
 | [🚀 `app.py`](app.py) | Script | Production Gradio 5 web UI with ZeroGPU hooks and multi-tab inference |
 | [📦 `requirements.txt`](requirements.txt) | Config | Python package dependencies pinned for Gradio 5.49.1 and PyTorch |
-| [🐧 `packages.txt`](packages.txt) | Config | Debian system libraries (`libgl1`, `libglib2.0-0`) for Spaces container |
 | [📄 `README.md`](README.md) | Docs | Project overview, benchmarks, epipolar geometry, and setup guide |
 | [📜 `LICENSE`](LICENSE) | Legal | MIT Open-Source License |
 | [⚙️ `generate_ieee_report.py`](generate_ieee_report.py) | Script | Automated IEEE-format report generation script |

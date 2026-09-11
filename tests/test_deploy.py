@@ -63,11 +63,11 @@ class DeploymentStructureTests(unittest.TestCase):
         self.assertIn("Dry run passed! Clean package verified successfully.", proc.stdout)
 
         # Ensure essential code is packaged
-        for expected in ("app.py", "README.md", "requirements.txt", "packages.txt", "src/dataset.py", "core/raft_stereo.py"):
+        for expected in ("app.py", "README.md", "requirements.txt", "src/dataset.py", "core/raft_stereo.py"):
             self.assertIn(f"  - {expected}", proc.stdout)
 
-        # Ensure demo images, documents, and deploy scripts are NOT staged into Space package
-        for excluded in ("deploy/", "demo_images/", "Documents/", "report_figures/"):
+        # Ensure demo images, documents, deploy scripts, and packages.txt are NOT staged into Space package
+        for excluded in ("deploy/", "demo_images/", "Documents/", "report_figures/", "packages.txt"):
             self.assertNotIn(f"  - {excluded}", proc.stdout)
 
     def test_deploy_sh_dry_run_from_deploy_dir(self):
