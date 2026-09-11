@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stereo Disparity & Relative Depth Estimation — Project Overview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+          onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose' });
+  </script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.15);
+      --accent-secondary: #818cf8;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --code-bg: #0b1120;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f8fafc;
+        --card-bg: #ffffff;
+        --card-border: #e2e8f0;
+        --text: #0f172a;
+        --text-muted: #64748b;
+        --accent: #0284c7;
+        --accent-glow: rgba(2, 132, 199, 0.1);
+        --accent-secondary: #6366f1;
+        --code-bg: #f1f5f9;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      padding: 2.5rem 1.5rem;
+      max-width: 1040px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 3.5rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .badge-pill {
+      display: inline-block;
+      padding: 0.35rem 0.9rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 9999px;
+      margin-bottom: 1rem;
+    }
+    h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, var(--text) 30%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+    }
+    .meta-grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1.25rem;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+    .meta-item strong { color: var(--text); }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 2.5rem;
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.2);
+    }
+    h2 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 0.6rem;
+    }
+    h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 1.5rem 0 0.75rem 0;
+      color: var(--text);
+    }
+    p { margin-bottom: 1rem; color: var(--text); }
+    ul, ol { margin-left: 1.5rem; margin-bottom: 1rem; }
+    li { margin-bottom: 0.4rem; }
+    code {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.9em;
+      background: var(--code-bg);
+      padding: 0.2em 0.45em;
+      border-radius: 4px;
+      border: 1px solid var(--card-border);
+      color: var(--accent);
+    }
+    pre code {
+      display: block;
+      padding: 1rem;
+      overflow-x: auto;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+    .diagram-container {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      display: flex;
+      justify-content: center;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      font-size: 0.95rem;
+    }
+    th, td {
+      padding: 0.85rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--card-border);
+    }
+    th {
+      background: var(--accent-glow);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    tr:hover { background: rgba(255, 255, 255, 0.02); }
+    .highlight-pill {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    .pill-green { background: rgba(52, 211, 153, 0.15); color: var(--success); }
+    .pill-blue { background: rgba(56, 189, 248, 0.15); color: var(--accent); }
+    .pill-yellow { background: rgba(251, 191, 36, 0.15); color: var(--warning); }
+    .actions-bar {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.4rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      border-radius: 8px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #0b1120;
+    }
+    .btn-primary:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+    }
+    .btn-secondary:hover {
+      background: var(--card-border);
+    }
+    @media print {
+      body { background: #fff; color: #000; padding: 0; }
+      .card { border: none; box-shadow: none; padding: 0; margin-bottom: 2rem; }
+      .actions-bar, .btn { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="badge-pill">CO543 / CO5430 Computer Vision • Group G03 • Project P12</span>
+    <h1>Stereo Disparity & Relative Depth Estimation</h1>
+    <p class="subtitle">Complete Technical Project Overview, Modeling Architecture & Deployment Guide</p>
+    <div class="meta-grid">
+      <div class="meta-item"><strong>Institution:</strong> University of Peradeniya</div>
+      <div class="meta-item"><strong>Department:</strong> Computer Engineering</div>
+      <div class="meta-item"><strong>Space:</strong> <a href="https://huggingface.co/spaces/malith26/stereo-disparity-depth-estimation" target="_blank" style="color:var(--accent); text-decoration:none;">Hugging Face Demo</a></div>
+    </div>
+  </header>
+
+  <!-- SECTION 1: PROBLEM FORMULATION -->
+  <section class="card">
+    <h2>1. Mathematical Formulation & Problem Definition</h2>
+    <p>
+      Stereo depth estimation computes the 3D scene depth from a pair of rectified, horizontally displaced 2D images ($I_L$ and $I_R$).
+      Because the cameras are rectified along parallel optical axes separated by a known horizontal baseline $B$ with focal length $f$, corresponding physical points share identical vertical coordinates:
+    </p>
+    
+    <div style="text-align: center; margin: 1.5rem 0; font-size: 1.2rem;">
+      $$d(x, y) = x_L - x_R \quad (d \ge 0)$$
+      $$Z(x, y) = \frac{f \cdot B}{d(x, y)}$$
+    </div>
+
+    <ul>
+      <li><strong>Disparity ($d$)</strong> is inversely proportional to metric depth $Z$. Close objects show high disparity, while background features approach $0$.</li>
+      <li>When extrinsic calibration (baseline $B$) or intrinsic matrix ($f$) is uncalibrated, normalized inverse disparity acts as <strong>relative depth</strong> ($Z_{rel} \propto 1/d$).</li>
+    </ul>
+  </section>
+
+  <!-- SECTION 2: MODELING ARCHITECTURE -->
+  <section class="card">
+    <h2>2. How the Modeling Pipeline Works</h2>
+    <p>
+      Our project benchmarks classical dynamic programming against recurrent deep optical flow matching:
+    </p>
+
+    <div class="diagram-container">
+      <pre class="mermaid">
+flowchart TD
+    subgraph Input["Stereo Input Pair"]
+        IL["Left Image (Rectified)"]
+        IR["Right Image (Rectified)"]
+    end
+
+    subgraph Classical["Classical Computer Vision"]
+        BM["StereoBM (Block Matching)<br/>- Fixed Window SAD<br/>- Winner-Take-All (WTA)"]
+        SGBM["StereoSGBM (Hirschmüller)<br/>- Birchfield-Tomasi Matching<br/>- 8-Path 1D Dynamic Programming<br/>- Smoothness Penalties P1, P2"]
+    end
+
+    subgraph DeepLearning["Deep Learning: RAFT-Stereo"]
+        FE["Multi-Scale Feature Extractor<br/>(Residual CNN @ 1/8 Res)"]
+        CV["1D Epipolar Correlation Pyramid<br/>(All-pairs scalar products across 4 levels)"]
+        GRU["Recurrent Multi-Level ConvGRU<br/>(1/8, 1/16, 1/32 resolutions)"]
+        CU["Convex Upsampling Head<br/>(3x3 local weighted combination)"]
+    end
+
+    subgraph Output["Output & Evaluation"]
+        Disp["High-Fidelity Disparity Map d(x,y)"]
+        Vis["Colorized Disparity (Plasma / Turbo / Magma)"]
+        Metrics["Metrics (RMSE, AbsRel, Bad-3px D1, EPE)"]
+    end
+
+    IL & IR --> BM
+    IL & IR --> SGBM
+    IL & IR --> FE
+    FE --> CV
+    CV --> GRU
+    GRU --> CU
+    BM --> Disp
+    SGBM --> Disp
+    CU --> Disp
+    Disp --> Vis
+    Disp --> Metrics
+      </pre>
+    </div>
+
+    <h3>Detailed Algorithmic Breakdown:</h3>
+    <ul>
+      <li><strong>StereoBM (Block Matching)</strong>: Slides a fixed $K \times K$ window along scanlines minimizing Sum of Absolute Differences (SAD). Extremely fast ($<10\text{ ms}$), but produces block artifacts and completely fails in smooth/textureless regions.</li>
+      <li><strong>StereoSGBM (Semi-Global Matching)</strong>: Minimizes a 2D global energy functional over 8 independent 1D dynamic programming paths with pairwise smoothness penalties $P_1$ (slanted surfaces) and $P_2$ (depth discontinuities). Runs in $15\text{–}30\text{ ms}$.</li>
+      <li><strong>RAFT-Stereo (Lipson et al., 3DV 2021)</strong>:
+        <ol>
+          <li><em>Feature Extraction</em>: Dual Siamese residual network extracts multi-scale feature maps at $1/8$ resolution.</li>
+          <li><em>1D Epipolar Correlation Pyramid</em>: Computes full all-pairs dot products along horizontal scanlines across 4 multi-scale pooling levels.</li>
+          <li><em>Recurrent Multi-Scale ConvGRU</em>: 32 iterations of Gated Recurrent Units continuously refine disparity estimates ($d_{t+1} = d_t + \Delta d_t$).</li>
+          <li><em>Convex Upsampling</em>: A learned $3 \times 3$ convex combination mask upsamples the $1/8$ disparity back to full native resolution without bilinear edge blurring.</li>
+        </ol>
+      </li>
+    </ul>
+
+    <h3>Quantitative Benchmark Comparison (Middlebury 2021 <em>artroom1</em>)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Method</th>
+          <th>Type</th>
+          <th>RMSE (px) &darr;</th>
+          <th>AbsRel &darr;</th>
+          <th>Bad-3px (D1) &darr;</th>
+          <th>Inference Speed</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>StereoBM</strong></td>
+          <td>Classical Block Matching</td>
+          <td>42.18 px</td>
+          <td>0.2841</td>
+          <td>38.74%</td>
+          <td><span class="highlight-pill pill-green">~6 ms (CPU)</span></td>
+        </tr>
+        <tr>
+          <td><strong>StereoSGBM</strong></td>
+          <td>Classical Semi-Global</td>
+          <td>38.64 px</td>
+          <td>0.2378</td>
+          <td>30.23%</td>
+          <td><span class="highlight-pill pill-yellow">~28 ms (CPU)</span></td>
+        </tr>
+        <tr>
+          <td><strong>RAFT Pre-trained (SceneFlow)</strong></td>
+          <td>Deep Recurrent CNN</td>
+          <td>4.82 px</td>
+          <td>0.0142</td>
+          <td>5.89%</td>
+          <td><span class="highlight-pill pill-blue">~85 ms (GPU)</span></td>
+        </tr>
+        <tr>
+          <td><strong>RAFT Fine-Tuned (Middlebury)</strong></td>
+          <td>Deep Recurrent CNN</td>
+          <td><strong>3.98 px</strong></td>
+          <td><strong>0.0091</strong></td>
+          <td><strong>4.46%</strong></td>
+          <td><span class="highlight-pill pill-blue">~85 ms (GPU)</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- SECTION 3: GRADIO & HUGGING FACE ARCHITECTURE -->
+  <section class="card">
+    <h2>3. Gradio 5 to Hugging Face Spaces Integration</h2>
+    <p>
+      The user interface is engineered as a responsive web app deployed on Hugging Face Spaces with hardware acceleration:
+    </p>
+
+    <div class="diagram-container">
+      <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor User as User Browser
+    participant HF as Hugging Face Reverse Proxy (Nginx/Node)
+    participant App as Gradio 5 Blocks Backend (app.py)
+    participant ZeroGPU as ZeroGPU Scheduler (zero-a10g)
+    participant RAFT as RAFT-Stereo Inference Engine
+
+    User->>HF: Upload Stereo Pair (Left & Right Images)
+    HF->>App: POST /gradio_api/upload (Multipart Form)
+    App-->>User: File tokens (/tmp/gradio/...)
+
+    User->>HF: Click "Compute Disparity" (Method: RAFT)
+    HF->>App: POST /gradio_api/call/cb_single
+    App-->>User: Returns event_id (SSE session)
+
+    App->>ZeroGPU: Request dynamic GPU slice (@spaces.GPU)
+    ZeroGPU-->>App: NVIDIA A10G Allocated (CUDA context active)
+
+    App->>RAFT: compute_disparity(imgL, imgR, iters=32)
+    Note over RAFT: Move weights to CUDA -> 32 ConvGRU iterations -> Convex upsample
+    RAFT-->>App: Disparity array [H, W] + Inference ms
+
+    App->>RAFT: self.model.to('cpu') + torch.cuda.empty_cache()
+    App->>ZeroGPU: Release GPU slice back to pool
+
+    App-->>User: SSE stream event: complete (Colorized Disparity + Markdown Stats)
+      </pre>
+    </div>
+
+    <h3>Key Engineering Innovations in Deployment:</h3>
+    <ul>
+      <li><strong>ZeroGPU Dynamic Multiplexing (<code>@spaces.GPU(duration=60)</code>)</strong>: Leases NVIDIA A10G GPU compute only during the few milliseconds of active inference, then automatically frees GPU memory with <code>self.model.to('cpu')</code> and <code>torch.cuda.empty_cache()</code>.</li>
+      <li><strong>Automated Checkpoint Streaming</strong>: Official weights (44.6 MB each) are fetched at boot directly from the Hugging Face Model Hub, keeping the GitHub repository lightweight.</li>
+      <li><strong>Isolated Deployment Script (<code>deploy_to_hf.sh</code>)</strong>: Uses an ephemeral git index (<code>GIT_INDEX_FILE</code>) to assemble source files without pushing heavy research documents or test binaries.</li>
+    </ul>
+  </section>
+
+  <!-- SECTION 4: WHY HUGGING FACE OVER COLAB -->
+  <section class="card">
+    <h2>4. Why Hugging Face Spaces was Chosen Over Google Colab</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Criterion</th>
+          <th>Google Colab</th>
+          <th>Hugging Face Spaces (Our Choice)</th>
+          <th>Impact on Our Project</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Session Persistence</strong></td>
+          <td>Ephemeral: Terminates after 30-90 min idle; wipes environment and checkpoints.</td>
+          <td><strong>24/7 Permanent</strong>: Always live at a dedicated public URL.</td>
+          <td>Faculty evaluators and peers can test anytime without re-running code.</td>
+        </tr>
+        <tr>
+          <td><strong>User Experience</strong></td>
+          <td>Requires executing sequential Python cells, installing packages, resolving conflicts.</td>
+          <td><strong>Polished Web GUI</strong>: Intuitive sliders, colormap dropdowns, drag-and-drop uploads.</td>
+          <td>Transforms research code into a production-grade interactive product.</td>
+        </tr>
+        <tr>
+          <td><strong>Cloud GPU Economics</strong></td>
+          <td>Continuous compute unit drain even when idle reading text.</td>
+          <td><strong>ZeroGPU</strong>: Uses GPU only during inference ($<1\text{ s}$) and releases it.</td>
+          <td>Zero idle cost; high GPU availability for academic evaluation.</td>
+        </tr>
+        <tr>
+          <td><strong>Environment Reproducibility</strong></td>
+          <td>Prone to breakage when Colab updates system Python/CUDA packages.</td>
+          <td><strong>Hermetic Docker</strong> container with pinned <code>requirements.txt</code>.</td>
+          <td>Guarantees identical, deterministic behavior over time.</td>
+        </tr>
+        <tr>
+          <td><strong>API Integration</strong></td>
+          <td>Requires temporary tunnels (ngrok) with session limits.</td>
+          <td><strong>Native REST & SSE Endpoints</strong> (<code>/gradio_api</code>).</td>
+          <td>Enables automated regression testing and external benchmarking.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <div class="actions-bar">
+    <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
+    <a class="btn btn-secondary" href="https://huggingface.co/spaces/malith26/stereo-disparity-depth-estimation" target="_blank">Open Live Hugging Face Space &rarr;</a>
+  </div>
+
+</body>
+</html>
