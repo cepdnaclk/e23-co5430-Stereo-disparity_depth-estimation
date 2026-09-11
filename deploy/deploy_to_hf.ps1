@@ -16,9 +16,9 @@
     Optional switch to force push if remote history differs.
 
 .EXAMPLE
-    .\deploy_to_hf.ps1
-    .\deploy_to_hf.ps1 -SpaceTarget "username/space-name"
-    .\deploy_to_hf.ps1 -SpaceTarget "https://huggingface.co/spaces/username/my-stereo-app" -Force
+    .\deploy\deploy_to_hf.ps1
+    .\deploy\deploy_to_hf.ps1 -SpaceTarget "username/space-name"
+    .\deploy\deploy_to_hf.ps1 -SpaceTarget "https://huggingface.co/spaces/username/my-stereo-app" -Force
 #>
 
 [CmdletBinding()]
@@ -53,17 +53,27 @@ Write-Host "   Repository: e23-co5430-Stereo-disparity_depth-estimation " -Foreg
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 1. Verify git is installed
+# 1. Resolve repository root (parent directory of this script)
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+if (-not $ScriptDir) { $ScriptDir = $PSScriptRoot }
+if (-not $ScriptDir) { $ScriptDir = (Get-Location).Path }
+$RepoRoot = Split-Path -Parent $ScriptDir
+if (Test-Path (Join-Path $RepoRoot "app.py")) {
+    Set-Location $RepoRoot
+}
+
+# 2. Verify git is installed
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Err "Git is not installed or not in PATH."
     Write-Host "Please install Git for Windows: https://git-scm.com/"
     exit 1
 }
 
-# 2. Check repository files
+# 3. Check repository files
 if (-not (Test-Path "app.py")) {
-    Write-Err "app.py was not found in the current directory ($pwd)."
-    Write-Host "Please run this script from the root directory of the repository."
+    Write-Err "app.py was not found in repository root ($pwd)."
+    Write-Host "Please ensure this script is in the deploy\ directory of the repository:"
+    Write-Host "  .\deploy\deploy_to_hf.ps1"
     exit 1
 }
 

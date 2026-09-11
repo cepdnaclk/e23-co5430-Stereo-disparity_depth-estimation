@@ -1,6 +1,5 @@
 ---
 title: Stereo Disparity and Depth Estimation
-emoji: 👁️
 colorFrom: indigo
 colorTo: purple
 sdk: gradio
@@ -42,14 +41,31 @@ hardware: cpu-basic
 * **E/23/343** — S.B.N.S. Samarawickrama *(RAFT-Stereo architecture wrapping, PyTorch pipeline, guarded few-shot domain adaptation)*
 * **E/23/347** — S.D.M.P. Sandanayake *(Production Gradio 5 web UI, Hugging Face Spaces deployment, ZeroGPU integration, benchmarking)*
 
+### 📚 Academic Documents & Milestone Deliverables
+
+All formal course reports, slides, and project documentation are tracked in the [`Documents/`](Documents/) directory:
+
+| Document | Format | Description | Direct Link |
+| :--- | :---: | :--- | :---: |
+| **Comprehensive Final Report** | `PDF` | Full IEEE-style final report with mathematical derivations, ablation studies, and benchmarks | [📄 `CO5430_P12_Final_Report.pdf`](Documents/CO5430_P12_Final_Report.pdf) |
+| **Final Presentation Slides** | `PPTX` | Comprehensive course defense presentation covering Milestones 1–3 and cloud deployment | [📊 `CO5430_P12_Final_Presentaion.pptx`](Documents/CO5430_P12_Final_Presentaion.pptx) |
+| **Milestone 3 Presentation** | `PPTX` | RAFT-Stereo deep learning integration and guarded domain adaptation results | [📊 `M3.pptx`](Documents/M3.pptx) |
+| **Milestone 2 Presentation** | `PPTX` | Classical StereoBM and StereoSGBM implementation, P1/P2 tuning, and baselines | [📊 `M2.pptx`](Documents/M2.pptx) |
+| **Course Project Proposal** | `PDF` | Initial project proposal defining system objectives, scope, and technical roadmap | [📑 `Project Proposal.pdf`](Documents/Project%20Proposal.pdf) |
+
 ---
 
 ## 📸 Visual Results & Model Comparisons
 
-### Qualitative Disparity & Error Heatmap Comparison
-Visual benchmarking across classical sliding-window matching, semi-global energy minimization, and deep recurrent field transforms evaluated on Middlebury 2021 (*artroom1*):
+### 4-Way Model Disparity Comparison (Live Web App Output)
+Side-by-side disparity estimation across classical matching algorithms and deep learning models evaluated on Middlebury 2021 (*artroom1*), showing visual reconstruction detail and real-time inference latency:
 
-![Qualitative Comparison across StereoBM, StereoSGBM, RAFT Pretrained, and RAFT Fine-Tuned](report_figures/fig5_qualitative_comparison.png)
+![4-Way Model Disparity Comparison (StereoBM, StereoSGBM, RAFT Pretrained, RAFT Fine-Tuned)](demo_images/four_way_comparison_output.png)
+
+* **StereoBM** (34 ms): Fast classical block matching baseline; struggles with textureless regions and displays boundary edge-fattening.
+* **StereoSGBM** (39 ms): Semi-global energy minimization using 8-path dynamic programming; significantly improves boundary continuity.
+* **RAFT Pretrained** (543 ms): Deep recurrent correlation pyramid model trained on synthetic SceneFlow; smooth disparity fields across large planar regions.
+* **RAFT Fine-tuned** (137 ms): Domain-adapted with guarded few-shot fine-tuning; demonstrates sharp foreground separation (e.g. flower petals, bird figurine) and faster convergence.
 
 ---
 
@@ -74,14 +90,14 @@ The system supports both classical computer vision matching algorithms and deep 
 ![End-to-End System Pipeline and Dataflow Architecture](report_figures/fig2_system_pipeline.png)
 
 ### Algorithmic Breakdown:
-1. **StereoBM (Block Matching)**: Fixed square window ($K \times K$) minimizing the Sum of Absolute Differences (SAD). Fast ($\sim 15\text{ ms}$ on CPU) but vulnerable to textureless regions and edge fattening.
-2. **StereoSGBM (Semi-Global Block Matching)**: Minimizes a 2D Markov Random Field energy functional across 8 dynamic programming paths with pairwise smoothness penalties $P_1$ (slanted surfaces) and $P_2$ (depth discontinuities):
+1. **StereoBM (Block Matching)** ([`src/stereo_bm.py`](src/stereo_bm.py)): Fixed square window ($K \times K$) minimizing the Sum of Absolute Differences (SAD). Fast ($\sim 15\text{ ms}$ on CPU) but vulnerable to textureless regions and edge fattening.
+2. **StereoSGBM (Semi-Global Block Matching)** ([`src/stereo_sgbm.py`](src/stereo_sgbm.py)): Minimizes a 2D Markov Random Field energy functional across 8 dynamic programming paths with pairwise smoothness penalties $P_1$ (slanted surfaces) and $P_2$ (depth discontinuities):
    $$E(D) = \sum_p C(p, D_p) + \sum_{q \in N_p} P_1 \cdot \mathbf{1}(|D_p - D_q| = 1) + \sum_{q \in N_p} P_2 \cdot \mathbf{1}(|D_p - D_q| > 1)$$
-3. **RAFT-Stereo (Lipson et al., 3DV 2021)**:
-   - **Dual Encoders**: Feature network (`fnet`) extracts multi-scale representations at $1/4$ resolution; Context network (`cnet`) initializes recurrent hidden states.
-   - **1D Epipolar Correlation Pyramid**: All-pairs dot-product correlation along horizontal epipolar lines with 4 pooling radii ($r \in \{1, 2, 4, 8\}$).
-   - **Recurrent ConvGRU**: 32 recurrent updates predicting residual disparity updates ($d_{t+1} = d_t + \Delta d_t$).
-   - **Guarded Few-Shot Domain Adaptation**: Backbone freezing (`fnet`/`cnet`), sequence-discounted Smooth L1 loss ($\gamma = 0.9$), valid-pixel ground-truth masking ($0 < d \le 250\text{ px}$), and conservative learning rates ($\eta = 10^{-6}$).
+3. **RAFT-Stereo (Lipson et al., 3DV 2021)** ([`src/raft_wrapper.py`](src/raft_wrapper.py) / [`core/raft_stereo.py`](core/raft_stereo.py)):
+   - **Dual Encoders** ([`core/extractor.py`](core/extractor.py)): Feature network (`fnet`) extracts multi-scale representations at $1/4$ resolution; Context network (`cnet`) initializes recurrent hidden states.
+   - **1D Epipolar Correlation Pyramid** ([`core/corr.py`](core/corr.py)): All-pairs dot-product correlation along horizontal epipolar lines with 4 pooling radii ($r \in \{1, 2, 4, 8\}$).
+   - **Recurrent ConvGRU** ([`core/update.py`](core/update.py)): 32 recurrent updates predicting residual disparity updates ($d_{t+1} = d_t + \Delta d_t$).
+   - **Guarded Few-Shot Domain Adaptation**: Backbone freezing (`fnet`/`cnet`), sequence-discounted Smooth L1 loss ($\gamma = 0.9$), valid-pixel ground-truth masking ($0 < d \le 250\text{ px}$ via [`src/dataset.py`](src/dataset.py)), and conservative learning rates ($\eta = 10^{-6}$).
 
 ![RAFT-Stereo Recurrent Architecture and Domain Adaptation Guardrails](report_figures/fig3_raft_architecture.png)
 
@@ -110,11 +126,11 @@ Quantitative evaluation performed on the high-resolution Middlebury 2021 benchma
 
 ## 💻 Web Application Features
 
-The production Gradio 5 application (`app.py`) provides four interactive tabs:
+The production Gradio 5 application ([`app.py`](app.py)) provides four interactive tabs:
 
-1. **Single Model Disparity**: Upload any stereo pair (or click the 1-click sample button), adjust parameters (`blockSize`, `numDisparities`, `uniquenessRatio`, colormaps: `plasma`, `turbo`, `magma`, `viridis`), and compute colorized disparity maps.
-2. **4-Way Model Comparison**: Compare StereoBM, StereoSGBM, RAFT Pre-trained, and RAFT Fine-tuned side-by-side on identical stereo inputs.
-3. **Ground Truth Benchmark**: Upload a ground-truth disparity map (`.pfm` or `.png`) alongside a stereo pair to compute RMSE, AbsRel, Bad-3px rate, and render an interactive error heatmap.
+1. **Single Model Disparity**: Upload any stereo pair (or click the 1-click sample button), adjust parameters (`blockSize`, `numDisparities`, `uniquenessRatio`, colormaps: `plasma`, `turbo`, `magma`, `viridis` via [`src/visualization.py`](src/visualization.py)), and compute colorized disparity maps.
+2. **4-Way Model Comparison**: Compare StereoBM, StereoSGBM, RAFT Pre-trained, and RAFT Fine-tuned side-by-side on identical stereo inputs (visualized in [`demo_images/four_way_comparison_output.png`](demo_images/four_way_comparison_output.png)).
+3. **Ground Truth Benchmark**: Upload a ground-truth disparity map (`.pfm` parsed by [`src/dataset.py`](src/dataset.py) or `.png`) alongside a stereo pair to compute RMSE, AbsRel, Bad-3px rate via [`src/evaluation.py`](src/evaluation.py), and render an interactive error heatmap.
 4. **Theory & Architecture**: Integrated technical documentation and academic references.
 
 ---
@@ -160,13 +176,13 @@ Open **`http://localhost:7860`** in your browser.
 To update or deploy to your own Hugging Face Space:
 ```bash
 # Linux / macOS / WSL:
-./deploy_to_hf.sh
+./deploy/deploy_to_hf.sh
 
 # Windows Command Prompt:
-deploy_to_hf.bat
+deploy\deploy_to_hf.bat
 
 # Windows PowerShell:
-.\deploy_to_hf.ps1
+.\deploy\deploy_to_hf.ps1
 ```
 
 ---
@@ -178,9 +194,10 @@ e23-co5430-Stereo-disparity_depth-estimation/
 ├── app.py                     # Production Gradio 5 application with ZeroGPU hooks
 ├── requirements.txt           # Python dependency specifications
 ├── packages.txt               # Debian system dependencies for Spaces container
-├── deploy_to_hf.sh            # Automated deployment script for Hugging Face Spaces
-├── deploy_to_hf.bat           # Windows Command Prompt deployment script
-├── deploy_to_hf.ps1           # Windows PowerShell deployment script
+├── deploy/                    # Automated deployment scripts for Hugging Face Spaces
+│   ├── deploy_to_hf.sh        # Linux / macOS / WSL deployment script
+│   ├── deploy_to_hf.bat       # Windows Command Prompt deployment script
+│   └── deploy_to_hf.ps1       # Windows PowerShell deployment script
 ├── README.md                  # Project documentation, benchmarks & HF metadata
 │
 ├── core/                      # Embedded RAFT-Stereo deep learning core
@@ -204,7 +221,8 @@ e23-co5430-Stereo-disparity_depth-estimation/
 │   ├── stereobm_left.png / stereobm_right.png
 │   ├── stereosgbm_left.png / stereosgbm_right.png
 │   ├── raft_pretrained_left.png / raft_pretrained_right.png
-│   └── raft_finetuned_left.png / raft_finetuned_right.png
+│   ├── raft_finetuned_left.png / raft_finetuned_right.png
+│   └── four_way_comparison_output.png # Live 4-way disparity output screenshot
 │
 ├── report_figures/            # High-resolution architectural figures & diagrams
 │   ├── fig1_epipolar_geometry.png
@@ -214,13 +232,64 @@ e23-co5430-Stereo-disparity_depth-estimation/
 │   └── fig5_qualitative_comparison.png
 │
 ├── Documents/                 # Academic milestone deliverables & reports
-│   ├── Project Proposal.pdf   # Approved project proposal
-│   ├── M2.pptx                # Milestone 2 presentation slides
-│   ├── M3.pptx                # Milestone 3 presentation slides
-│   └── CO5430_P12_Final_Report_IEEE.docx # Comprehensive IEEE technical report
+│   ├── CO5430_P12_Final_Report.pdf        # Comprehensive academic project report
+│   ├── CO5430_P12_Final_Presentaion.pptx  # Final presentation slides
+│   ├── M3.pptx                            # Milestone 3 presentation slides
+│   ├── M2.pptx                            # Milestone 2 presentation slides
+│   └── Project Proposal.pdf               # Approved project proposal
 │
 └── tests/
+    ├── test_deploy.py         # Automated deployment packaging & directory tests
     └── test_app_startup.py    # Automated startup and API regression tests
+```
+
+### 🗂️ Interactive File & Document Directory Linker
+
+Direct clickable links to source modules, deployment scripts, test suites, and academic documentation:
+
+| Directory / File | Type | Description |
+| :--- | :---: | :--- |
+| [🚀 `app.py`](app.py) | Script | Production Gradio 5 web UI with ZeroGPU hooks and multi-tab inference |
+| [📦 `requirements.txt`](requirements.txt) | Config | Python package dependencies pinned for Gradio 5.49.1 and PyTorch |
+| [🐧 `packages.txt`](packages.txt) | Config | Debian system libraries (`libgl1`, `libglib2.0-0`) for Spaces container |
+| [📄 `README.md`](README.md) | Docs | Project overview, benchmarks, epipolar geometry, and setup guide |
+| [📜 `LICENSE`](LICENSE) | Legal | MIT Open-Source License |
+| [⚙️ `generate_ieee_report.py`](generate_ieee_report.py) | Script | Automated IEEE-format report generation script |
+| **📁 `deploy/`** | Directory | **Hugging Face Spaces cross-platform deployment automation** |
+| ├── [🐚 `deploy/deploy_to_hf.sh`](deploy/deploy_to_hf.sh) | Script | Isolated Git packager and deployment script for Linux/macOS/WSL |
+| ├── [💻 `deploy/deploy_to_hf.bat`](deploy/deploy_to_hf.bat) | Script | Windows Command Prompt deployment tool with root auto-detection |
+| └── [⚡ `deploy/deploy_to_hf.ps1`](deploy/deploy_to_hf.ps1) | Script | Windows PowerShell deployment script with root auto-detection |
+| **📁 `Documents/`** | Directory | **Academic milestone deliverables and technical reports** |
+| ├── [📑 `Documents/CO5430_P12_Final_Report.pdf`](Documents/CO5430_P12_Final_Report.pdf) | PDF | Comprehensive final IEEE academic project report |
+| ├── [📊 `Documents/CO5430_P12_Final_Presentaion.pptx`](Documents/CO5430_P12_Final_Presentaion.pptx) | Slides | Final project defense presentation slides |
+| ├── [📊 `Documents/M3.pptx`](Documents/M3.pptx) | Slides | Milestone 3 (Deep Learning & Domain Adaptation) presentation |
+| ├── [📊 `Documents/M2.pptx`](Documents/M2.pptx) | Slides | Milestone 2 (Classical Stereo Matching) presentation |
+| └── [📑 `Documents/Project Proposal.pdf`](Documents/Project%20Proposal.pdf) | PDF | Approved course project proposal |
+| **📁 `src/`** | Directory | **Core modular computer vision and evaluation library** |
+| ├── [🐍 `src/dataset.py`](src/dataset.py) | Python | 32-bit floating-point `.pfm` ground-truth reader and valid mask parser |
+| ├── [🐍 `src/preprocessing.py`](src/preprocessing.py) | Python | Memory-safe 384×512 spatial cropping and image normalization |
+| ├── [🐍 `src/stereo_bm.py`](src/stereo_bm.py) | Python | Classical StereoBM sliding-window SAD implementation |
+| ├── [🐍 `src/stereo_sgbm.py`](src/stereo_sgbm.py) | Python | Classical StereoSGBM 8-path dynamic programming with dynamic $P_1/P_2$ |
+| ├── [🐍 `src/raft_wrapper.py`](src/raft_wrapper.py) | Python | RAFT-Stereo PyTorch inference wrapper with streaming checkpoint downloader |
+| ├── [🐍 `src/evaluation.py`](src/evaluation.py) | Python | Quantitative metrics: RMSE, AbsRel, Bad-3px (D1), and EPE |
+| └── [🐍 `src/visualization.py`](src/visualization.py) | Python | Disparity colormapping (`plasma`, `turbo`, `viridis`) and error heatmaps |
+| **📁 `core/`** | Directory | **Embedded RAFT-Stereo deep recurrent architecture** |
+| ├── [🐍 `core/raft_stereo.py`](core/raft_stereo.py) | Python | Full RAFT-Stereo PyTorch network definition |
+| ├── [🐍 `core/corr.py`](core/corr.py) | Python | 1D epipolar all-pairs correlation pyramid layer |
+| ├── [🐍 `core/extractor.py`](core/extractor.py) | Python | Multi-scale residual feature and context encoder networks |
+| ├── [🐍 `core/update.py`](core/update.py) | Python | Recurrent ConvGRU iterative disparity update operator |
+| ├── [🐍 `core/stereo_datasets.py`](core/stereo_datasets.py) | Python | Training dataset abstractions and augmentation transforms |
+| └── [📁 `core/utils/`](core/utils/) | Directory | Frame utilities, spatial padding mechanics, and augmentors |
+| **📁 `demo_images/`** | Directory | **Middlebury benchmark test pairs and qualitative outputs** |
+| ├── [🖼️ `demo_images/four_way_comparison_output.png`](demo_images/four_way_comparison_output.png) | Image | Live 4-way comparison screenshot across all models |
+| ├── [🗺️ `demo_images/artroom1_ground_truth.pfm`](demo_images/artroom1_ground_truth.pfm) | Data | 32-bit floating-point Middlebury 2021 ground-truth disparity map |
+| ├── [🖼️ `demo_images/stereobm_left.png`](demo_images/stereobm_left.png) / [right](demo_images/stereobm_right.png) | Images | Rectified stereo pair for StereoBM testing |
+| ├── [🖼️ `demo_images/stereosgbm_left.png`](demo_images/stereosgbm_left.png) / [right](demo_images/stereosgbm_right.png) | Images | Rectified stereo pair for StereoSGBM testing |
+| ├── [🖼️ `demo_images/raft_pretrained_left.png`](demo_images/raft_pretrained_left.png) / [right](demo_images/raft_pretrained_right.png) | Images | Rectified stereo pair for RAFT pre-trained testing |
+| └── [🖼️ `demo_images/raft_finetuned_left.png`](demo_images/raft_finetuned_left.png) / [right](demo_images/raft_finetuned_right.png) | Images | Rectified stereo pair for RAFT fine-tuned testing |
+| **📁 `tests/`** | Directory | **Automated regression and deployment test suite** |
+| ├── [🧪 `tests/test_deploy.py`](tests/test_deploy.py) | Python | Tests for `deploy/` directory structure, permissions, and git packaging |
+| └── [🧪 `tests/test_app_startup.py`](tests/test_app_startup.py) | Python | Tests for Gradio 5 API schemas, endpoints, and startup integrity |
 ```
 
 ---

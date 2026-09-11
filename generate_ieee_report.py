@@ -553,7 +553,7 @@ def build_document():
         "• Dynamic ZeroGPU Allocation: Utilizes the @spaces.GPU decorator to dynamically request NVIDIA A10G GPU acceleration during inference, bypassing static cloud resource caps.\n"
         "• Four Interactive Operation Modes: Features dedicated tabs for Single Model Disparity Estimation, 4-Way Simultaneous Model Comparison, Middlebury Ground-Truth Benchmarking, and Interactive Methodology Documentation.\n"
         "• Native PFM Evaluation: Supports direct upload of 32-bit floating-point .pfm disparity files, computing real-time quantitative metrics (RMSE, AbsRel, Bad-3px, EPE) with live visual error heatmaps.\n"
-        "• Robust Cloud Packaging: Engineered an automated deployment engine (deploy_to_hf.sh) utilizing isolated Git plumbing to deploy clean source code while eliminating binary asset rejections."
+        "• Robust Cloud Packaging: Engineered an automated deployment engine (deploy/deploy_to_hf.sh) utilizing isolated Git plumbing to deploy clean source code while eliminating binary asset rejections."
     )
 
     # -------------------------------------------------------------------------
@@ -589,7 +589,7 @@ def build_document():
         "• E/23/343 S.B.N.S. Samarawickrama: Spearheaded the RAFT-Stereo deep learning pipeline, PyTorch architecture wrapping, and input padding mechanics. "
         "Designed the Milestone 3 guarded domain adaptation protocol (backbone freezing, sequence-discounted Smooth L1 loss, and learning rate scheduling).\n"
         "• E/23/347 S.D.M.P. Sandanayake: Engineered the production Gradio 5 web application, Hugging Face Spaces cloud deployment with ZeroGPU integration, "
-        "and automated cross-platform deployment scripts (deploy_to_hf.sh). Coordinated full quantitative benchmarking, metric calculation, and report consolidation."
+        "and automated cross-platform deployment scripts (deploy/deploy_to_hf.sh). Coordinated full quantitative benchmarking, metric calculation, and report consolidation."
     )
 
     # -------------------------------------------------------------------------
