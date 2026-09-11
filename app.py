@@ -110,13 +110,26 @@ def _align(L, R):
     return L, R
 
 def _ensure_samples():
-    import zlib, struct, math
-    ex = os.path.join(current_dir, "examples")
-    os.makedirs(ex, exist_ok=True)
-    lf = os.path.join(ex, "sample_left.png")
-    rf = os.path.join(ex, "sample_right.png")
+    import tempfile
+    demo_dir = os.path.join(current_dir, "demo_images")
+    candidates = [
+        ("stereobm_left.png", "stereobm_right.png"),
+        ("stereosgbm_left.png", "stereosgbm_right.png"),
+        ("raft_pretrained_left.png", "raft_pretrained_right.png"),
+    ]
+    for c_l, c_r in candidates:
+        lf = os.path.join(demo_dir, c_l)
+        rf = os.path.join(demo_dir, c_r)
+        if os.path.exists(lf) and os.path.exists(rf):
+            return lf, rf
+
+    cache_dir = os.path.join(current_dir, ".cache", "demo_samples")
+    os.makedirs(cache_dir, exist_ok=True)
+    lf = os.path.join(cache_dir, "sample_left.png")
+    rf = os.path.join(cache_dir, "sample_right.png")
     if os.path.exists(lf) and os.path.exists(rf):
         return lf, rf
+    import zlib, struct, math
     W, H = 480, 360
     def png(w, h, ba):
         def chunk(t, d):

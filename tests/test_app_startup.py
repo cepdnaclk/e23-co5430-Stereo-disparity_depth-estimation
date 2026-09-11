@@ -40,7 +40,6 @@ class AppStartupTests(unittest.TestCase):
                     self.assertEqual(client.get(path).status_code, 200)
 
     def test_sample_stereo_output(self):
-        examples = Path(app.current_dir) / "examples"
         lf, rf = app._ensure_samples()
         left = cv2.cvtColor(cv2.imread(lf), cv2.COLOR_BGR2RGB)
         right = cv2.cvtColor(cv2.imread(rf), cv2.COLOR_BGR2RGB)
