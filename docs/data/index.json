@@ -1,0 +1,32 @@
+{
+  "team": [
+    {
+      "name": "H.M.K.I. Herath",
+      "email": "e23127@eng.pdn.ac.lk",
+      "eNumber": "E/23/127"
+    },
+    {
+      "name": "K.M.M.Y.K. Kumarasinge",
+      "email": "e23188@eng.pdn.ac.lk",
+      "eNumber": "E/23/188"
+    },
+    {
+      "name": "S.B.N.S. Samarawickrama",
+      "email": "e23343@eng.pdn.ac.lk",
+      "eNumber": "E/23/343"
+    },
+    {
+      "name": "S.D.M.P. Sandanayake",
+      "email": "e23347@eng.pdn.ac.lk",
+      "eNumber": "E/23/347"
+    }
+  ],
+  "supervisors": [],
+  "tags": [
+    "Computer Vision",
+    "Stereo Vision",
+    "CO5430"
+  ],
+  "image": "cover_page.jpg",
+  "thumbnail": "docs/images/thumbnail.jpg"
+}
