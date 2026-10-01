@@ -1,4 +1,4 @@
 title: Stereo Disparity and Depth Estimation
 description: CO5430 computer vision project for disparity and depth estimation from rectified stereo images.
-theme: minima
+remote_theme: cepdnaclk/eYY-project-theme
 markdown: kramdown
